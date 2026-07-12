@@ -327,24 +327,24 @@ async def search_ip(
         )
 
         results.append(
-            f"• <b>DNS inverso</b>: "
-            f"<code>{safe_text(hostname)}</code>"
+            "• <b>DNS inverso</b>: <code>"
+            + safe_text(hostname)
+            + "</code>"
         )
 
         for alias in aliases[:5]:
             results.append(
-                f"• <b>Alias DNS</b>: "
-                f"<code>{safe_text(alias)}</code>"
+                "• <b>Alias DNS</b>: <code>"
+                + safe_text(alias)
+                + "</code>"
             )
 
     except (socket.herror, socket.gaierror, OSError):
         logger.info("Sin DNS inverso para %s", raw_address)
 
-    rdap_url = f"https://rdap.org/ip/{raw_address}"
-
     rdap_data = await fetch_json(
         session,
-        rdap_url,
+        "https://rdap.org/ip/" + raw_address,
         headers={"User-Agent": "UniversalSearchBot/1.0"},
     )
 
@@ -356,19 +356,21 @@ async def search_ip(
         network_type = rdap_data.get("type", "desconocido")
 
         results.append(
-            "• <b>Asignación RDAP</b>\n"
-            f"  Red: {safe_text(network_name)}
-"
-            f"  País: {safe_text(country)}
-"
-            f"  Tipo: {safe_text(network_type)}
-"
-            f"  Rango: <code>{safe_text(start_address)}"
-            f" - {safe_text(end_address)}</code>"
+            "• <b>Asignación RDAP</b>"
+            + "\n  Red: "
+            + safe_text(network_name)
+            + "\n  País: "
+            + safe_text(country)
+            + "\n  Tipo: "
+            + safe_text(network_type)
+            + "\n  Rango: <code>"
+            + safe_text(start_address)
+            + " - "
+            + safe_text(end_address)
+            + "</code>"
         )
 
     return results
-
 
 # ============================================================
 # EJECUCIÓN DE BÚSQUEDAS
