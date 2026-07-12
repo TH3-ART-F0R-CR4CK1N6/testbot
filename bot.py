@@ -267,18 +267,15 @@ async def search_domain(
                 f"• <b>DNS A</b>: <code>{safe_text(address)}</code>"
             )
 
-    rdap_url = f"https://rdap.org/domain/{domain}"
-
     rdap_data = await fetch_json(
         session,
-        rdap_url,
+        f"https://rdap.org/domain/{domain}",
         headers={"User-Agent": "UniversalSearchBot/1.0"},
     )
 
     if rdap_data:
         domain_name = rdap_data.get("ldhName", domain)
         statuses = ", ".join(rdap_data.get("status", [])) or "sin datos"
-
         event_dates: dict[str, str] = {}
 
         for event in rdap_data.get("events", []):
@@ -288,14 +285,10 @@ async def search_domain(
             if action and date:
                 event_dates[action] = date[:10]
 
-        registration = event_dates.get(
-            "registration",
-            event_dates.get("last changed", "desconocido"),
-        )
-
+        registration = event_dates.get("registration", "desconocido")
         expiration = event_dates.get("expiration", "desconocida")
 
-               results.append(
+        results.append(
             "• <b>RDAP</b>: "
             + safe_text(domain_name)
             + "\n  Estado: "
@@ -306,6 +299,7 @@ async def search_domain(
             + safe_text(expiration)
         )
 
+    return results
 # ============================================================
 # BÚSQUEDA DE DIRECCIONES IP
 # ============================================================
