@@ -550,20 +550,51 @@ async def privacy_command(message: Message) -> None:
 
 
 # ============================================================
-# INICIO DEL BOT
+# WEBHOOK PARA RENDER
 # ============================================================
 
-async def main() -> None:
-    bot = Bot(
-        token=TELEGRAM_BOT_TOKEN,
-        default=DefaultBotProperties(
-            parse_mode=ParseMode.HTML,
-        ),
+from aiohttp import web
+from aiogram.webhook.aiohttp_server import (
+    SimpleRequestHandler,
+    setup_application,
+)
+
+PORT = int(os.getenv("PORT", "10000"))
+WEBHOOK_PATH = "/telegram/webhook"
+WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]
+
+WEBHOOK_BASE_URL = (
+    os.getenv("WEBHOOK_BASE_URL")
+    or os.getenv("RENDER_EXTERNAL_URL")
+)
+
+if not WEBHOOK_BASE_URL:
+    raise RuntimeError(
+        "Configura WEBHOOK_BASE_URL con la URL pública de Render."
     )
 
-    dispatcher = Dispatcher()
-    dispatcher.include_router(router)
+WEBHOOK_BASE_URL = WEBHOOK_BASE_URL.rstrip("/")
+WEBHOOK_URL = f"{WEBHOOK_BASE_URL}{WEBHOOK_PATH}"
 
+
+async def health_handler(request: web.Request) -> web.Response:
+    return web.json_response(
+        {
+            "status": "ok",
+            "service": "universal-search-bot",
+            "webhook": WEBHOOK_PATH,
+        }
+    )
+
+
+async def root_handler(request: web.Request) -> web.Response:
+    return web.Response(
+        text="Universal Search OSINT Bot funcionando.",
+        content_type="text/plain",
+    )
+
+
+async def on_startup(bot: Bot) -> None:
     await bot.set_my_commands(
         [
             BotCommand(
@@ -593,16 +624,67 @@ async def main() -> None:
         ]
     )
 
-    logger.info("Iniciando Universal Search Bot")
+    await bot.set_webhook(
+        url=WEBHOOK_URL,
+        secret_token=WEBHOOK_SECRET,
+        allowed_updates=dispatcher.resolve_used_update_types(),
+        drop_pending_updates=False,
+    )
 
-    try:
-        await dispatcher.start_polling(
-            bot,
-            allowed_updates=dispatcher.resolve_used_update_types(),
-        )
-    finally:
-        await bot.session.close()
+    webhook_info = await bot.get_webhook_info()
+
+    logger.info("Webhook configurado: %s", webhook_info.url)
+    logger.info("Servidor escuchando en 0.0.0.0:%s", PORT)
+
+
+async def on_shutdown(bot: Bot) -> None:
+    logger.info("Cerrando sesión del bot")
+    await bot.session.close()
+
+
+bot = Bot(
+    token=TELEGRAM_BOT_TOKEN,
+    default=DefaultBotProperties(
+        parse_mode=ParseMode.HTML,
+    ),
+)
+
+dispatcher = Dispatcher()
+dispatcher.include_router(router)
+dispatcher.startup.register(on_startup)
+dispatcher.shutdown.register(on_shutdown)
+
+
+def create_application() -> web.Application:
+    application = web.Application()
+
+    application.router.add_get("/", root_handler)
+    application.router.add_get("/health", health_handler)
+
+    webhook_handler = SimpleRequestHandler(
+        dispatcher=dispatcher,
+        bot=bot,
+        secret_token=WEBHOOK_SECRET,
+    )
+
+    webhook_handler.register(
+        application,
+        path=WEBHOOK_PATH,
+    )
+
+    setup_application(
+        application,
+        dispatcher,
+        bot=bot,
+    )
+
+    return application
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    web.run_app(
+        create_application(),
+        host="0.0.0.0",
+        port=PORT,
+        access_log=logger,
+    )
