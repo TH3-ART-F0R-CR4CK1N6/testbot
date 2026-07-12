@@ -295,19 +295,16 @@ async def search_domain(
 
         expiration = event_dates.get("expiration", "desconocida")
 
-        results.append(
+               results.append(
             "• <b>RDAP</b>: "
-            f"{safe_text(domain_name)}
-"
-            f"  Estado: {safe_text(statuses)}
-"
-            f"  Registro: {safe_text(registration)}
-"
-            f"  Expiración: {safe_text(expiration)}"
+            + safe_text(domain_name)
+            + "\n  Estado: "
+            + safe_text(statuses)
+            + "\n  Registro: "
+            + safe_text(registration)
+            + "\n  Expiración: "
+            + safe_text(expiration)
         )
-
-    return results
-
 
 # ============================================================
 # BÚSQUEDA DE DIRECCIONES IP
